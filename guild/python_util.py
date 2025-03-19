@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    # pylint: disable=deprecated-module
-    import imp
+import importlib.util
 
 import ast
 import logging
@@ -563,19 +558,19 @@ def _find_module(main_mod, model_paths):
         for sys_path_item in [main_mod_sys_path] + sys.path:
             cur_path = os.path.join(sys_path_item, *module_path)
             try:
-                f, maybe_mod_path, _desc = imp.find_module(module_name_part, [cur_path])
+                spec = importlib.util.find_spec(module_name_part, [cur_path])
             except ImportError:
                 pass
             else:
-                if f:
-                    f.close()
-                else:
-                    maybe_mod_path = _find_package_main(maybe_mod_path)
+                if spec is None:
+                    maybe_mod_path = _find_package_main(cur_path)
                     if not maybe_mod_path:
                         raise ImportError(
                             f"No module named {module}.__main__ ('{module}' is "
                             "a package and cannot be directly executed)"
                         )
+                else:
+                    maybe_mod_path = spec.origin
                 return main_mod_sys_path, maybe_mod_path
     raise ImportError(f"No module named {main_mod}")
 

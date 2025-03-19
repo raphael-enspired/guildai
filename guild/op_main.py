@@ -13,11 +13,7 @@
 # limitations under the License.
 
 import warnings
-
-with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', category=DeprecationWarning)
-    # pylint: disable=deprecated-module
-    import imp
+import importlib
 
 import logging
 import os
@@ -217,20 +213,17 @@ def _find_module(module):
     # See function docstring for the rationale of this algorithm.
     for sys_path_item in sys.path:
         cur_path = os.path.join(sys_path_item, *module_path)
-        try:
-            f, path, _desc = imp.find_module(module_name_part, [cur_path])
-        except ImportError:
-            pass
-        else:
-            if f:
-                f.close()
-            else:
-                path = _find_package_main(path)
-                if path is None:
-                    raise ImportError(
-                        f"No module named {module}.__main__ ('{module}' is "
-                        "a package and cannot be directly executed)"
-                    )
+        spec = importlib.util.find_spec(module_name_part, [cur_path])
+        if spec is not None:
+            return ModuleInfo(spec.origin, package)
+        elif os.path.isdir(cur_path):
+            # Handle package case
+            path = _find_package_main(cur_path)
+            if path is None:
+                raise ImportError(
+                    f"No module named {module}.__main__ ('{module}' is "
+                    "a package and cannot be directly executed)"
+                )
             return ModuleInfo(path, package)
     raise ImportError(f"No module named {module}")
 
